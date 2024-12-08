@@ -4,9 +4,9 @@ PORTA = $6001
 DDRB = $6002
 DDRA = $6003
 
-E = %10000000
-RW = %01000000
-RS = %00100000
+E = %00000001
+RW = %00000010
+RS = %00000100
 CLS = %00000001
 
   .org $8000
@@ -21,7 +21,7 @@ reset:
   lda #%11111111
   sta DDRB
   
-  lda #%11100000
+  lda #%00000111
   sta DDRA
 
   ;initalize lcd
@@ -47,63 +47,63 @@ reset:
   jsr lcd_init
 
   ldx #0 
-
+  ldy #0
 
 rx_wait:
-  lda PORTA
-  and #%00000010  ; and it with bit one, setting overflow*
-  beq bit_delay_tag 
-  jmp rx_wait  
+  bit PORTA
+  bvs rx_wait
 
-bit_delay_tag:
   jsr half_bit_delay
 
-continue:
+  ldx #8
+read_bit:
   jsr bit_delay
-  lda PORTA
-  and #%00000010
-  beq recv_0
-  sec
-  jmp rx_done
-
-recv_0:
+  bit PORTA
+  bvs recv_1
   clc
+  jmp rx_done
+recv_1:
+  sec 
 rx_done:
-  ror   ;rotate bits into A from carry
+  ror 
   dex
-  bne continue
-  ; all 8 bits are in A 
+  bne read_bit
+  iny
+  cmp #$08
+  beq clear_screen
+
   jsr print_char
+
+rx_done_1:
   jsr bit_delay
   jmp rx_wait
 
 bit_delay:
-  phx
-  ldx #17
+  phx 
+  ldx #13
 
 bit_delay_1:
-  dex 
+  dex
   bne bit_delay_1
-
-  plx
+  plx 
   rts
 
 half_bit_delay:
-  phx
-  ldx #9
-
+  phx 
+  ldx #6
 half_bit_delay_1:
   dex 
-  bne bit_delay_1
-
-  plx
+  bne half_bit_delay_1
+  plx 
   rts
 
-; read_bit:
 
-;   ldx #8
-;   bne read_bit
-;   jmp rx_wait
+clear_screen:
+  lda #CLS
+  sta PORTB
+  jsr lcd_init
+  jmp rx_done_1
+
 
 ; hello:
 ;   lda message, x
@@ -118,7 +118,7 @@ half_bit_delay_1:
 
 
 message: .asciiz "Ouagadougou"
- 
+
  print_char:
   jsr lcd_wait
   sta PORTB
@@ -129,7 +129,7 @@ message: .asciiz "Ouagadougou"
   lda #RS         ; Clear E bits
   sta PORTA
   rts
- 
+
 lcd_init:
   jsr lcd_wait
   lda #0
@@ -177,8 +177,6 @@ lcd_busy:
 ;   sta PORTA 
   
 ;   rts
-  
-
   .org $fffc
   .word reset
   .word $0000
