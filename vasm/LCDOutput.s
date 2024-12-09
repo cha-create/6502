@@ -9,6 +9,11 @@ RW = %00000010
 RS = %00000100
 CLS = %00000001
 
+ACIA_DATA = $5000
+ACIA_STATUS = $5001
+ACIA_CMD = $5002
+ACIA_CTRL = $5003
+
   .org $8000
  
 
@@ -46,65 +51,47 @@ reset:
 
   jsr lcd_init
 
-  ldx #0 
-  ldy #0
+  lda #$00
+  sta ACIA_STATUS ; soft reset for ACIA
+
+  lda #%00011111   ; 8-N-1 19200 Baud
+  sta ACIA_CTRL
+
+  lda #%00001011   ; no parity, echo, or interrupts
+  sta ACIA_CMD
+;   ldx #0
+
+; print_serial:
+;   lda message, x
+;   beq done
+;   jsr send_char
+;   inx
+;   jmp print_serial
+; done:
 
 rx_wait:
-  bit PORTA
-  bvs rx_wait
+  lda ACIA_STATUS
+  and #$08
+  beq rx_wait
 
-  jsr half_bit_delay
-
-  ldx #8
-read_bit:
-  jsr bit_delay
-  bit PORTA
-  bvs recv_1
-  clc
-  jmp rx_done
-recv_1:
-  sec 
-rx_done:
-  ror 
-  dex
-  bne read_bit
-  iny
-  cmp #$0D
-  beq clear_screen
-  cpy #15
-  beq clear_screen
+  lda ACIA_DATA
+  jsr send_char
   jsr print_char
-
-rx_done_1:
-  jsr bit_delay
   jmp rx_wait
 
-bit_delay:
-  phx 
-  ldx #13
 
-bit_delay_1:
-  dex
-  bne bit_delay_1
-  plx 
+; message: .asciiz "Two way serial baybeee!"
+
+
+send_char:
+  sta ACIA_DATA
+  pha 
+tx_wait:
+  lda ACIA_STATUS
+  and #$10
+  beq tx_wait
+  pla 
   rts
-
-half_bit_delay:
-  phx 
-  ldx #6
-half_bit_delay_1:
-  dex 
-  bne half_bit_delay_1
-  plx 
-  rts
-
-
-clear_screen:
-  lda #CLS
-  sta PORTB
-  jsr lcd_init
-  ldy #0
-  jmp rx_done_1
 
 
 ; hello:
@@ -119,7 +106,6 @@ clear_screen:
 ;   jmp loop
 
 
-message: .asciiz "Ouagadougou"
 
  print_char:
   jsr lcd_wait
