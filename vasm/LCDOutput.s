@@ -69,9 +69,10 @@ rx_done:
   dex
   bne read_bit
   iny
-  cmp #$08
+  cmp #$0D
   beq clear_screen
-
+  cpy #15
+  beq clear_screen
   jsr print_char
 
 rx_done_1:
@@ -102,6 +103,7 @@ clear_screen:
   lda #CLS
   sta PORTB
   jsr lcd_init
+  ldy #0
   jmp rx_done_1
 
 
